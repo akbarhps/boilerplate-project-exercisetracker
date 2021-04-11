@@ -23,13 +23,19 @@ router.post('/new-user', async (req, res, next) => {
 
 router.post('/add', async (req, res, next) => {
   try {
-    const user = await User.findOne({ _id: req.body.userId });
+    let user = await User.findOne({ _id: req.body.userId });
     if (!user) {
       return next({ message: 'User doesn\'t exists' });
     }
     const exercise = new Exercise(req.body);
     const result = await exercise.save();
-    res.send(result);
+    res.json({
+      _id: user._id,
+      username: user.username,
+      description: result.description,
+      duration: result.duration,
+      date: result.date.toDateString()
+    });
   } catch (e) {
     next(e);
   }
@@ -37,27 +43,26 @@ router.post('/add', async (req, res, next) => {
 
 router.get('/log', async (req, res, next) => {
   const { from, to, limit, userId } = req.query;
-  try {
-    let log;
-    if (userId) {
-      log = await getUserLog(userId);
-    } else {
-      log = await getLogByTime(from, to, limit);
+  console.log(req.query);
+  const option = {};
+  if (userId) {
+    option.userId = userId;
+  }
+  if (from && to) {
+    option.date = {
+      $gte: from, $lte: to
     }
-    res.send(log);
+  }
+  try {
+    const log = await Exercise.find(option).limit(parseInt(limit) || 0);
+    if (userId) {
+      res.json({ log, count: log.length });
+    } else {
+      res.send(log);
+    }
   } catch (e) {
     next(e);
   }
 });
-
-async function getUserLog(userId) {
-  return await Exercise.find({ userId });
-}
-
-async function getLogByTime(from, to, limit) {
-  return await Exercise.find({
-    date: { $gt: from, $lt: to }
-  }).limit(limit || 0);
-}
 
 module.exports = router;
